@@ -1,6 +1,3 @@
-*.pdb
-*.obj
-*.ilk
-*.exe
-*.yml
-.vscode/**/*
+*
+!*.cpp
+!*.gitignore
