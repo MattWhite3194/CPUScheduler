@@ -10,8 +10,7 @@ struct PCB{
     int waitTime = 0;
     int turnAroundTime = 0;
     int responseTime = 0;
-    int lastWaitingEnterTime = 0;
-    int lastRunningEnterTime = 0;
+    int priority = 0;
 };
 
 void SortFinishedProcess(PCB* process, std::list<PCB*> &finishedProcesses);
@@ -26,7 +25,8 @@ int main() {
 
     std::string input;
     std::cin >> input;
-    std::transform(input.begin(), input.end(), input.begin(), std::tolower);
+    for (int i = 0; i < input.size(); i++)
+        input[i] = std::tolower(input[i]);
     
     if (input == "fcfs") 
         FCFS();
@@ -74,9 +74,9 @@ void FCFS() {
     while(true) {
 
         if (running != NULL) {
-            if (systemTime - running->lastRunningEnterTime == running->burstTimes[running->burstCounter]) {
+            running->burstTimes[running->burstCounter] = running->burstTimes[running->burstCounter] - 1;
+            if (running->burstTimes[running->burstCounter] == 0) {
                 running->burstCounter = running->burstCounter + 1;
-                running->lastWaitingEnterTime = systemTime;
 
                 //remove process if that was its last burst
                 if (running->burstCounter >= running->burstTimes.size()) {
@@ -94,11 +94,16 @@ void FCFS() {
             if (running->burstCounter == 0) {
                 running->responseTime = systemTime;
             }
-            running->lastRunningEnterTime = systemTime;
+        }
+
+        //increment time of all processes in the ready queue, and the systen time
+        for (std::list<PCB*>::iterator it = readyList.begin(); it != readyList.end(); ++it){
+            (*it)->waitTime = (*it)->waitTime + 1;
         }
 
         for (std::list<PCB*>::iterator it = waitingList.begin(); it != waitingList.end();) {
-            if (systemTime - (*it)->lastWaitingEnterTime == (*it)->burstTimes[(*it)->burstCounter]) {
+            (*it)->burstTimes[(*it)->burstCounter] = (*it)->burstTimes[(*it)->burstCounter] - 1;
+            if ((*it)->burstTimes[(*it)->burstCounter] == 0) {
                 PCB* process = *it;
                 process->burstCounter = process->burstCounter + 1;
                 readyList.push_back(process);
@@ -108,11 +113,8 @@ void FCFS() {
                 it++;
             }
         }
-        //increment time of all processes in the ready queue, and the systen time
-        for (std::list<PCB*>::iterator it = readyList.begin(); it != readyList.end(); ++it){
-            (*it)->waitTime = (*it)->waitTime + 1;
-        }
         systemTime++;
+        
 
         //exit if their are no processes left
         if (running == NULL && readyList.size() == 0 && waitingList.size() == 0)
@@ -129,11 +131,11 @@ void SJF() {
     std::list<PCB*> finishedProcesses;
     int systemTime = 0;
     while(true) {
-        
+
         if (running != NULL) {
-            if (systemTime - running->lastRunningEnterTime == running->burstTimes[running->burstCounter]) {
+            running->burstTimes[running->burstCounter] = running->burstTimes[running->burstCounter] - 1;
+            if (running->burstTimes[running->burstCounter] == 0) {
                 running->burstCounter = running->burstCounter + 1;
-                running->lastWaitingEnterTime = systemTime;
 
                 //remove process if that was its last burst
                 if (running->burstCounter >= running->burstTimes.size()) {
@@ -159,11 +161,17 @@ void SJF() {
             if (running->burstCounter == 0) {
                 running->responseTime = systemTime;
             }
-            running->lastRunningEnterTime = systemTime;
+        }
+
+
+        //increment time of all processes in the ready queue, and the systen time
+        for (std::list<PCB*>::iterator it = readyList.begin(); it != readyList.end(); ++it){
+            (*it)->waitTime = (*it)->waitTime + 1;
         }
 
         for (std::list<PCB*>::iterator it = waitingList.begin(); it != waitingList.end();) {
-            if (systemTime - (*it)->lastWaitingEnterTime == (*it)->burstTimes[(*it)->burstCounter]) {
+            (*it)->burstTimes[(*it)->burstCounter] = (*it)->burstTimes[(*it)->burstCounter] - 1;
+            if ((*it)->burstTimes[(*it)->burstCounter] == 0) {
                 PCB* process = *it;
                 process->burstCounter = process->burstCounter + 1;
                 readyList.push_back(process);
@@ -173,11 +181,8 @@ void SJF() {
                 it++;
             }
         }
-        //increment time of all processes in the ready queue, and the systen time
-        for (std::list<PCB*>::iterator it = readyList.begin(); it != readyList.end(); ++it){
-            (*it)->waitTime = (*it)->waitTime + 1;
-        }
         systemTime++;
+        
 
         //exit if their are no processes left
         if (running == NULL && readyList.size() == 0 && waitingList.size() == 0)
@@ -188,11 +193,122 @@ void SJF() {
 }
 
 void MLQF() {
+    std::list<PCB*> rr5ReadyList = GetProcessControlBlocks();
+    std::list<PCB*> rr10ReadyList;
+    std::list<PCB*> fcfsReadyList;
+    std::list<PCB*> waitingList;
+    std::list<PCB*> finishedProcesses;
+    PCB* running = NULL;
+    int rr5Time = 0;
+    int rr10Time = 0;
+    int systemTime = 0;
+    while (true) {
+        if (running != NULL) {
+            running->burstTimes[running->burstCounter] = running->burstTimes[running->burstCounter] - 1;
+            if (running->burstTimes[running->burstCounter] == 0) {
+                running->burstCounter = running->burstCounter + 1;
+                //remove process if that was its last burst
+                if (running->burstCounter >= running->burstTimes.size()) {
+                    running->turnAroundTime = systemTime;
+                    SortFinishedProcess(running, finishedProcesses);
+                }
+                else {
+                    if (running->priority < 2)
+                        running->priority = running->priority + 1;
+                    waitingList.push_back(running);
+                }
+                running = NULL;
+            }
+            else {
+                switch (running->priority) {
+                    case 0: {
+                        rr5Time++;
+                        if (rr5Time == 5) {
+                            running->priority = running->priority + 1;
+                            rr10ReadyList.push_back(running);
+                            running = NULL;
+                        }
+                        break;
+                    }
 
+                    case 1: {
+                        rr10Time++;
+                        if (rr10Time == 10) {
+                            running->priority = running->priority + 1;
+                            fcfsReadyList.push_back(running);
+                            running = NULL;
+                        }
+                        break;
+                    }
+
+                    default: 
+                        break;
+                }
+            }
+        }
+
+        if (running == NULL) {
+            std::list<PCB*>* current_queue = NULL;
+            if (rr5ReadyList.size() != 0) 
+                current_queue = &rr5ReadyList;
+            else if (rr10ReadyList.size() != 0)
+                current_queue = &rr10ReadyList;
+            else if (fcfsReadyList.size() != 0)
+                current_queue = &fcfsReadyList;
+            
+            if (current_queue != NULL) {
+                running = (*current_queue).front();
+                (*current_queue).pop_front();
+                if (running->burstCounter == 0) 
+                    running->responseTime = systemTime;
+            }
+        }
+
+        //increment time of all processes in the ready queue, and the systen time
+        for (std::list<PCB*>::iterator it = rr5ReadyList.begin(); it != rr5ReadyList.end(); ++it){
+            (*it)->waitTime = (*it)->waitTime + 1;
+        }
+        for (std::list<PCB*>::iterator it = rr10ReadyList.begin(); it != rr10ReadyList.end(); ++it){
+            (*it)->waitTime = (*it)->waitTime + 1;
+        }
+        for (std::list<PCB*>::iterator it = fcfsReadyList.begin(); it != fcfsReadyList.end(); ++it){
+            (*it)->waitTime = (*it)->waitTime + 1;
+        }
+
+        for (std::list<PCB*>::iterator it = waitingList.begin(); it != waitingList.end();) {
+            (*it)->burstTimes[(*it)->burstCounter] = (*it)->burstTimes[(*it)->burstCounter] - 1;
+            if ((*it)->burstTimes[(*it)->burstCounter] == 0) {
+                PCB* process = *it;
+                process->burstCounter = process->burstCounter + 1;
+                switch (process->priority) {
+                    case 1: {
+                        rr10ReadyList.push_back(process);
+                        break;
+                    }
+                    case 2: {
+                        fcfsReadyList.push_back(process);
+                        break;
+                    }
+                }
+                it = waitingList.erase(it);
+            }
+            else {
+                it++;
+            }
+        }
+        systemTime++;
+        
+
+        //exit if their are no processes left
+        if (running == NULL && rr5ReadyList.size() == 0 && rr10ReadyList.size() == 0 && fcfsReadyList.size() == 0 && waitingList.size() == 0)
+            break;
+    }
+
+    PrintResults(finishedProcesses);
 }
 
 void PrintResults(std::list<PCB*> finishedProcesses) {
-    int cumulativeWaitTime = 0, cumulativeResponseTime = 0, cumulativeTurnaroundTime = 0;
+    float cumulativeWaitTime = 0, cumulativeResponseTime = 0, cumulativeTurnaroundTime = 0;
     for (std::list<PCB*>::iterator it = finishedProcesses.begin(); it != finishedProcesses.end(); ++it) {
         cumulativeWaitTime += (*it)->waitTime;
         cumulativeResponseTime += (*it)->responseTime;
@@ -203,9 +319,9 @@ void PrintResults(std::list<PCB*> finishedProcesses) {
         std::cout<<"\t Response Time: "<<(*it)->responseTime<<"\n\n";
         free(*it);
     }
-    std::cout<<"Average Waiting Time (Tw): " << cumulativeWaitTime / finishedProcesses.size() << "\n";
-    std::cout<<"Average Response Time (Tr): " << cumulativeResponseTime / finishedProcesses.size() << "\n";
-    std::cout<<"Average Turnaround Time (Ttr): " << cumulativeTurnaroundTime / finishedProcesses.size() << "\n";
+    std::cout<<"Average Waiting Time (Tw): " << cumulativeWaitTime / (float)finishedProcesses.size() << "\n";
+    std::cout<<"Average Response Time (Tr): " << cumulativeResponseTime / (float)finishedProcesses.size() << "\n";
+    std::cout<<"Average Turnaround Time (Ttr): " << cumulativeTurnaroundTime / (float)finishedProcesses.size() << "\n";
 }
 
 void SortFinishedProcess(PCB* process, std::list<PCB*> &finishedProcesses) {
