@@ -126,6 +126,7 @@ void FCFS() {
 
 void SJF() {
     PCB* running = NULL;
+    //all lists are implemented as linked lists using std::list
     std::list<PCB*> readyList = GetProcessControlBlocks();
     std::list<PCB*> waitingList;
     std::list<PCB*> finishedProcesses;
@@ -133,12 +134,16 @@ void SJF() {
     while(true) {
 
         if (running != NULL) {
+            //decrement the running process' current cpu burst if there is a running process
             running->burstTimes[running->burstCounter] = running->burstTimes[running->burstCounter] - 1;
+            
+            //if the cpu birst has reached zero, move it to the waiting list if it has a following io burst. Otherwise, move it to finished-processes
             if (running->burstTimes[running->burstCounter] == 0) {
                 running->burstCounter = running->burstCounter + 1;
 
                 //remove process if that was its last burst
                 if (running->burstCounter >= running->burstTimes.size()) {
+                    //since all processes entered at time 0, turnaround time is the toal time from when they first entered the readylist, to when the process compkletes and exits
                     running->turnAroundTime = systemTime;
                     SortFinishedProcess(running, finishedProcesses);
                 }
@@ -148,12 +153,14 @@ void SJF() {
             }
         }
         if (readyList.size() != 0 && running == NULL) {
-            //find the shortest job in the ready queue
+            //find the shortest job in the ready list
             PCB* shortestJob = readyList.front();
             for (std::list<PCB*>::iterator it = readyList.begin(); it != readyList.end(); ++it) {
                 if ((*it)->burstTimes[(*it)->burstCounter] < shortestJob->burstTimes[shortestJob->burstCounter])
                     shortestJob = *it;
             }
+
+            //remove it from the ready
             readyList.remove(shortestJob);
             running = shortestJob;
             shortestJob = NULL;
@@ -164,7 +171,7 @@ void SJF() {
         }
 
 
-        //increment time of all processes in the ready queue, and the systen time
+        //increment time of all processes in the ready list, and the systen time
         for (std::list<PCB*>::iterator it = readyList.begin(); it != readyList.end(); ++it){
             (*it)->waitTime = (*it)->waitTime + 1;
         }
@@ -203,8 +210,12 @@ void MLQF() {
     int rr10Time = 0;
     int systemTime = 0;
     while (true) {
+
         if (running != NULL) {
+            //decrement thr remaining time in the process burst time
             running->burstTimes[running->burstCounter] = running->burstTimes[running->burstCounter] - 1;
+
+            //if their is no time left in the burst, move it to the waiting list if their is another burst time, otherwise move it to finished processes
             if (running->burstTimes[running->burstCounter] == 0) {
                 running->burstCounter = running->burstCounter + 1;
                 //remove process if that was its last burst
@@ -213,11 +224,11 @@ void MLQF() {
                     SortFinishedProcess(running, finishedProcesses);
                 }
                 else {
-                    if (running->priority < 2)
-                        running->priority = running->priority + 1;
                     waitingList.push_back(running);
                 }
                 running = NULL;
+                rr5Time = 0;
+                rr10Time = 0;
             }
             else {
                 switch (running->priority) {
@@ -227,6 +238,7 @@ void MLQF() {
                             running->priority = running->priority + 1;
                             rr10ReadyList.push_back(running);
                             running = NULL;
+                            rr5Time = 0;
                         }
                         break;
                     }
@@ -237,6 +249,7 @@ void MLQF() {
                             running->priority = running->priority + 1;
                             fcfsReadyList.push_back(running);
                             running = NULL;
+                            rr10Time = 0;
                         }
                         break;
                     }
@@ -281,6 +294,10 @@ void MLQF() {
                 PCB* process = *it;
                 process->burstCounter = process->burstCounter + 1;
                 switch (process->priority) {
+                    case 0: {
+                        rr5ReadyList.push_back(process);
+                        break;
+                    }
                     case 1: {
                         rr10ReadyList.push_back(process);
                         break;
